@@ -167,10 +167,11 @@ const I18N = {
     downloadExcel:"Download Excel (.xlsx)", includedTabs:"Included tabs", excelExported:"Excel exported", building:"Building workbook…",
     peopleTitle:"People", peopleSub:"Assign roles and supervisors, and remove people who've left.",
     pendingPeople:"Awaiting setup", assignRole:"Assign", removeConfirm:"Are you sure? This can't be undone.",
-    remove:"Remove", roleEmployee:"Employee", roleSupervisor:"Supervisor", roleManager:"Manager", supervisorLabel:"Supervisor",
+    remove:"Remove", roleEmployee:"Employee", roleSupervisor:"Supervisor", roleAdministrator:"Administrator", roleManager:"Manager", supervisorLabel:"Supervisor",
+    adminLeaveNote:"Only a manager can decide this",
     birthdaysTitle:"Birthdays", birthdaysSub:"Visible to everyone at STFacility.",
     loading:"Loading…", needConfig:"This app isn't configured yet.",
-    needConfigDetail:"Open this file, find https://ryryzbenmzawmgqqbmlf.supabase.co and sb_publishable_8LQ_NHQFu2fn-z9FBkO_9w_J6bV1C64 near the top of the script, and paste in your own project's values from the Supabase dashboard. See the setup guide for the full walkthrough.",
+    needConfigDetail:"Open this file, find SUPABASE_URL and SUPABASE_ANON_KEY near the top of the script, and paste in your own project's values from the Supabase dashboard. See the setup guide for the full walkthrough.",
     invalidCreds:"Couldn't sign in with those details.", emailInUse:"That email is already registered — try signing in instead.",
     checkEmailConfirm:"Account created. Check your email to confirm it, then sign in.",
     firstUserNote:"First time setting this up? After creating your account, follow the one-time step in the setup guide to make yourself the manager."
@@ -229,10 +230,11 @@ const I18N = {
     includedTabs:"Opgenomen tabbladen", excelExported:"Excel geëxporteerd", building:"Bestand wordt gemaakt…",
     peopleTitle:"Personeel", peopleSub:"Wijs rollen en leidinggevenden toe, en verwijder mensen die weg zijn.",
     pendingPeople:"Wacht op instelling", assignRole:"Toewijzen", removeConfirm:"Weet je het zeker? Dit kan niet ongedaan worden gemaakt.",
-    remove:"Verwijderen", roleEmployee:"Medewerker", roleSupervisor:"Leidinggevende", roleManager:"Manager", supervisorLabel:"Leidinggevende",
+    remove:"Verwijderen", roleEmployee:"Medewerker", roleSupervisor:"Leidinggevende", roleAdministrator:"Beheerder", roleManager:"Manager", supervisorLabel:"Leidinggevende",
+    adminLeaveNote:"Alleen een manager kan dit beslissen",
     birthdaysTitle:"Verjaardagen", birthdaysSub:"Zichtbaar voor iedereen bij STFacility.",
     loading:"Laden…", needConfig:"Deze app is nog niet ingesteld.",
-    needConfigDetail:"Open dit bestand, zoek https://ryryzbenmzawmgqqbmlf.supabase.co en sb_publishable_8LQ_NHQFu2fn-z9FBkO_9w_J6bV1C64 bovenaan het script, en vul de waarden van je eigen Supabase-project in. Zie de installatiehandleiding voor de volledige uitleg.",
+    needConfigDetail:"Open dit bestand, zoek SUPABASE_URL en SUPABASE_ANON_KEY bovenaan het script, en vul de waarden van je eigen Supabase-project in. Zie de installatiehandleiding voor de volledige uitleg.",
     invalidCreds:"Inloggen met die gegevens is niet gelukt.", emailInUse:"Dit e-mailadres is al geregistreerd — probeer in te loggen.",
     checkEmailConfirm:"Account aangemaakt. Bevestig via e-mail en log daarna in.",
     firstUserNote:"Voor het eerst instellen? Volg na het aanmaken van je account de eenmalige stap in de installatiehandleiding om jezelf manager te maken."
@@ -287,6 +289,16 @@ const NAV = {
   supervisor: [ {key:'dashboard', tk:'nav_dashboard_sup'}, {key:'team-time', tk:'nav_teamtime_sup'}, {key:'schedule', tk:'nav_schedule'}, {key:'leave-approvals', tk:'nav_leaveapp'}, {key:'reports', tk:'nav_reports'}, {key:'birthdays', tk:'nav_birthdays'} ],
   manager: [ {key:'dashboard', tk:'nav_dashboard_mgr'}, {key:'team-time', tk:'nav_teamtime_mgr'}, {key:'schedule', tk:'nav_schedule'}, {key:'leave-approvals', tk:'nav_leaveapp'}, {key:'people', tk:'nav_people'}, {key:'reports', tk:'nav_reports'}, {key:'birthdays', tk:'nav_birthdays'} ]
 };
+NAV.administrator = NAV.manager; // administrator gets the same navigation as manager
+
+// Full access = manager or administrator. The one place this deliberately
+// is NOT enough is deciding an administrator's own leave request — that
+// stays gated to isManagerRole() (real managers only), enforced both in
+// the UI (see pageLeaveApprovals) and, more importantly, in the database
+// via Row Level Security — so this UI check is a convenience, not the
+// real security boundary.
+function isFullAccess(role){ return role==='manager' || role==='administrator'; }
+function isManagerRole(role){ return role==='manager'; }
 
 /* ---------------- auth ---------------- */
 async function initApp(){
@@ -398,13 +410,13 @@ async function loadPageData(){
   if(state.page==='leave-approvals'){
     await loadTeam();
     const teamIds = state.team.map(p=>p.id);
-    const { data: reqs } = await sb.from('leave_requests').select('*, profiles!leave_requests_user_id_fkey(name)').in('user_id', teamIds.length?teamIds:['00000000-0000-0000-0000-000000000000']).order('submitted_at',{ascending:false});
+    const { data: reqs } = await sb.from('leave_requests').select('*, profiles!leave_requests_user_id_fkey(name, role)').in('user_id', teamIds.length?teamIds:['00000000-0000-0000-0000-000000000000']).order('submitted_at',{ascending:false});
     state.leaveRequests = reqs || [];
   }
   if(state.page==='reports'){
     await loadTeam();
   }
-  if(state.page==='people' && role==='manager'){
+  if(state.page==='people' && isFullAccess(role)){
     const { data: people } = await sb.from('profiles').select('*').order('role');
     state.people = people || [];
   }
@@ -420,7 +432,7 @@ async function loadPageData(){
 }
 async function loadTeam(){
   const role = state.profile.role;
-  if(role==='manager'){
+  if(isFullAccess(role)){
     const { data } = await sb.from('profiles').select('*').eq('role','employee');
     state.team = data || [];
   } else {
@@ -590,6 +602,7 @@ function openAssignForm(personId){
           <select id="asg-role" onchange="document.getElementById('asg-sup-field').style.display=this.value==='employee'?'block':'none'">
             <option value="employee" ${person.role==='employee'?'selected':''}>${t('roleEmployee')}</option>
             <option value="supervisor" ${person.role==='supervisor'?'selected':''}>${t('roleSupervisor')}</option>
+            <option value="administrator" ${person.role==='administrator'?'selected':''}>${t('roleAdministrator')}</option>
             <option value="manager" ${person.role==='manager'?'selected':''}>${t('roleManager')}</option>
           </select>
         </div>
@@ -852,7 +865,7 @@ function pageLeaveEmployee(){
 }
 
 function pageTeamDashboard(){
-  const isManager = state.profile.role==='manager';
+  const isManager = isFullAccess(state.profile.role);
   const clockedInToday = state.teamTimeRows.filter(r=>r.clock_in && !r.clock_out).length;
   return `
     <h1 class="page-title">${isManager?t('companyOverviewTitle'):t('teamOverviewTitle')}</h1>
@@ -875,7 +888,7 @@ function pageTeamDashboard(){
 }
 
 function pageTeamTime(){
-  const isManager = state.profile.role==='manager';
+  const isManager = isFullAccess(state.profile.role);
   return `
     <h1 class="page-title">${isManager?t('allTimeTitle'):t('teamTimeTitle')}</h1>
     <p class="page-sub">${t('timeRecordsSub')}</p>
@@ -900,20 +913,25 @@ function pageSchedule(){
 }
 
 function pageLeaveApprovals(){
-  const isManager = state.profile.role==='manager';
+  const isManager = isFullAccess(state.profile.role);
+  const viewerIsRealManager = isManagerRole(state.profile.role);
   return `
     <h1 class="page-title">${t('leaveReqTitle')}</h1>
     <p class="page-sub">${isManager?t('leaveReqSubMgr'):t('leaveReqSubSup')}</p>
     <div class="card"><table>
       <tr><th>${t('name')}</th><th>${t('colType')}</th><th>${t('colDates')}</th><th>${t('colDays')}</th><th>${t('colReason')}</th><th>${t('colStatus')}</th><th></th></tr>
-      ${state.leaveRequests.map(r=>`<tr>
+      ${state.leaveRequests.map(r=>{
+        const targetRole = r.profiles && r.profiles.role;
+        const isTargetAdmin = targetRole==='administrator';
+        const canDecide = r.status==='pending' && (!isTargetAdmin || viewerIsRealManager);
+        return `<tr>
         <td>${(r.profiles&&r.profiles.name)||'—'}</td>
         <td>${r.type==='vacation'?t('vacation'):t('sick')}</td>
         <td>${fmtDate(r.start_date)} – ${fmtDate(r.end_date)}</td>
         <td>${r.days}</td><td>${r.reason||'—'}</td>
         <td><span class="pill pill-${r.status}">${r.status}</span></td>
-        <td>${r.status==='pending'?`<button class="btn btn-sm btn-accept" onclick="decideLeave('${r.id}','accepted','${r.user_id}')">${t('accept')}</button> <button class="btn btn-sm btn-reject" onclick="decideLeave('${r.id}','rejected','${r.user_id}')">${t('reject')}</button>`:''}</td>
-      </tr>`).join('') || `<tr><td class="empty" colspan="7">${t('noRequests')}</td></tr>`}
+        <td>${canDecide?`<button class="btn btn-sm btn-accept" onclick="decideLeave('${r.id}','accepted','${r.user_id}')">${t('accept')}</button> <button class="btn btn-sm btn-reject" onclick="decideLeave('${r.id}','rejected','${r.user_id}')">${t('reject')}</button>`: (r.status==='pending' && isTargetAdmin ? `<span class="page-sub" style="margin:0">${t('adminLeaveNote')}</span>` : '')}</td>
+      </tr>`; }).join('') || `<tr><td class="empty" colspan="7">${t('noRequests')}</td></tr>`}
     </table></div>
   `;
 }
