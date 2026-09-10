@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STFacility — Workforce</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --navy:#0F2942; --blue:#1D5A96; --blue-light:#E6F1FB; --green:#2E7D3E; --green-light:#E8F4EA;
+    --rust:#B75B2E; --rust-light:#FBEEE6; --cream:#F7F5F0; --paper:#FFFFFF; --ink:#1B2430;
+    --ink-soft:#5B6472; --line:#DEDACD; --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--cream);color:var(--ink);}
+  h1,h2,h3{font-family:'Space Grotesk','Inter',sans-serif;}
+  .app{max-width:1180px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:var(--navy);color:#fff;gap:16px;flex-wrap:wrap;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-mark{width:34px;height:34px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--blue);font-size:15px;}
+  .brand-name{font-weight:600;font-size:17px;}
+  .brand-sub{font-size:11px;color:#B9C6D6;margin-top:-2px;}
+  .topbar-right{display:flex;align-items:center;gap:14px;}
+  .lang-toggle{display:flex;border:1px solid #2C567D;border-radius:7px;overflow:hidden;}
+  .lang-btn{background:#16344F;color:#B9C6D6;border:none;padding:6px 12px;font-size:12.5px;font-weight:600;cursor:pointer;}
+  .lang-btn.active{background:var(--blue);color:#fff;}
+  .user-chip{display:flex;align-items:center;gap:8px;font-size:13px;}
+  .user-chip .avatar-sm{width:28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:600;}
+  .logout-btn{background:transparent;border:1px solid #2C567D;color:#fff;border-radius:6px;padding:6px 12px;font-size:12.5px;cursor:pointer;}
+  .logout-btn:hover{background:#16344F;}
+  .layout{display:flex;flex:1;}
+  .sidebar{width:200px;background:var(--paper);border-right:1px solid var(--line);padding:18px 10px;flex-shrink:0;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--ink-soft);font-size:14px;cursor:pointer;margin-bottom:2px;font-weight:500;}
+  .nav-item:hover{background:var(--cream);}
+  .nav-item.active{background:var(--blue-light);color:var(--blue);}
+  .main{flex:1;padding:26px 30px;min-width:0;}
+  .page-title{font-size:22px;font-weight:600;margin:0 0 4px;}
+  .page-sub{color:var(--ink-soft);font-size:13.5px;margin:0 0 22px;}
+  .grid{display:grid;gap:16px;}
+  .grid-4{grid-template-columns:repeat(4,1fr);} .grid-3{grid-template-columns:repeat(3,1fr);} .grid-2{grid-template-columns:1fr 1fr;}
+  @media(max-width:900px){.grid-4{grid-template-columns:repeat(2,1fr);}.grid-3{grid-template-columns:1fr 1fr;}.grid-2{grid-template-columns:1fr;}.layout{flex-direction:column;}.sidebar{width:100%;display:flex;overflow-x:auto;}}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;}
+  .stat-label{font-size:12px;color:var(--ink-soft);margin:0 0 6px;}
+  .stat-value{font-size:26px;font-weight:600;margin:0;}
+  .stat-value.blue{color:var(--blue);} .stat-value.green{color:var(--green);} .stat-value.rust{color:var(--rust);}
+  .section-title{font-size:15px;font-weight:600;margin:26px 0 12px;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;color:var(--ink-soft);font-weight:500;padding:8px 10px;border-bottom:1px solid var(--line);font-size:12.5px;}
+  td{padding:9px 10px;border-bottom:1px solid #EEEBE1;}
+  tr:last-child td{border-bottom:none;}
+  .btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--paper);border-radius:7px;padding:8px 14px;font-size:13.5px;font-weight:500;cursor:pointer;color:var(--ink);}
+  .btn:hover{background:var(--cream);}
+  .btn-primary{background:var(--blue);color:#fff;border-color:var(--blue);}
+  .btn-primary:hover{background:#154678;}
+  .btn-primary:disabled{opacity:0.6;cursor:not-allowed;}
+  .btn-accept{background:var(--green-light);color:var(--green);border-color:#BFE0C6;}
+  .btn-reject{background:var(--rust-light);color:var(--rust);border-color:#EFCBB2;}
+  .btn-sm{padding:5px 10px;font-size:12.5px;}
+  .pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;}
+  .pill-pending{background:#FCEFDC;color:#8C5A0B;} .pill-accepted{background:var(--green-light);color:var(--green);} .pill-rejected{background:var(--rust-light);color:var(--rust);}
+  .clock-box{background:var(--navy);color:#fff;border-radius:var(--radius);padding:28px;text-align:center;}
+  .clock-time{font-size:44px;font-weight:600;font-family:'Space Grotesk',sans-serif;}
+  .clock-date{color:#B9C6D6;font-size:13px;margin-bottom:18px;}
+  .clock-buttons{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px;}
+  .clock-btn{padding:12px 18px;border-radius:8px;border:1px solid #2C567D;background:#16344F;color:#fff;font-size:13.5px;font-weight:600;cursor:pointer;min-width:110px;}
+  .clock-btn.active-step{background:var(--rust);border-color:var(--rust);}
+  .clock-btn:disabled{opacity:0.35;cursor:not-allowed;}
+  .modal-bg{position:fixed;inset:0;background:rgba(15,20,30,0.45);display:flex;align-items:center;justify-content:center;z-index:50;}
+  .modal{background:var(--paper);border-radius:12px;padding:24px;width:420px;max-width:92vw;max-height:88vh;overflow:auto;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12.5px;color:var(--ink-soft);margin-bottom:5px;font-weight:500;}
+  .field input,.field select,.field textarea{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;font-size:13.5px;font-family:inherit;}
+  .row{display:flex;gap:10px;} .row > *{flex:1;}
+  .notif-item{display:flex;gap:10px;padding:11px 0;border-bottom:1px solid #EEEBE1;font-size:13.5px;}
+  .notif-item:last-child{border-bottom:none;}
+  .notif-dot{width:8px;height:8px;border-radius:50%;background:var(--blue);margin-top:5px;flex-shrink:0;}
+  .notif-time{color:var(--ink-soft);font-size:12px;}
+  .bday-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #EEEBE1;font-size:13.5px;}
+  .bday-row:last-child{border-bottom:none;}
+  .avatar{width:32px;height:32px;border-radius:50%;background:var(--blue-light);color:var(--blue);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12.5px;flex-shrink:0;}
+  .empty{color:var(--ink-soft);font-size:13.5px;padding:14px 0;}
+  .toast{position:fixed;bottom:20px;right:20px;background:var(--navy);color:#fff;padding:12px 18px;border-radius:8px;font-size:13.5px;z-index:60;box-shadow:0 4px 16px rgba(0,0,0,0.2);}
+  .login-wrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--cream);padding:20px;}
+  .login-card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:32px;width:420px;max-width:92vw;}
+  .login-logo{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:6px;}
+  .login-logo .brand-mark{background:var(--blue);color:#fff;}
+  .login-title{text-align:center;font-size:19px;font-weight:600;margin:10px 0 2px;}
+  .login-sub{text-align:center;color:var(--ink-soft);font-size:13px;margin:0 0 22px;}
+  .login-tabs{display:flex;gap:8px;margin-bottom:18px;}
+  .login-tab{flex:1;text-align:center;padding:8px;border-radius:8px;border:1px solid var(--line);cursor:pointer;font-size:13px;font-weight:500;color:var(--ink-soft);}
+  .login-tab.active{background:var(--blue-light);color:var(--blue);border-color:var(--blue-light);}
+  .config-warning{background:var(--rust-light);color:#8C4116;font-size:12.5px;padding:12px 14px;border-radius:8px;margin-bottom:18px;line-height:1.5;}
+  .login-lang{display:flex;justify-content:center;margin-bottom:20px;}
+  .error-text{color:var(--rust);font-size:12.5px;margin:6px 0 4px;}
+  .success-text{color:var(--green);font-size:12.5px;margin:6px 0 4px;}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<script>
+/* ============================================================
+   CONFIGURE ME: paste your Supabase project's URL and anon key
+   here (Supabase Dashboard -> Project Settings -> API). The
+   anon key is safe to expose in client code — it's what Row
+   Level Security is for.
+   ============================================================ */
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+const CONFIGURED = SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY';
+const sb = CONFIGURED ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+/* ---------------- i18n ---------------- */
+const I18N = {
+  en:{
+    appName:"STFacility Workforce", liveTag:"LIVE",
+    signInTitle:"Sign in", signUpTitle:"Create account",
+    email:"Email", password:"Password", fullName:"Full name",
+    signIn:"Sign in", signUp:"Create account", forgotPassword:"Forgot password?",
+    resetTitle:"Reset your password", resetSub:"Enter your email and we'll send you a real reset link.",
+    resetEmailLabel:"Email address", sendResetLink:"Send reset link", resetSent:"Check your email for a reset link.",
+    close:"Close", signUpNote:"New accounts start as an employee with no supervisor assigned. Ask your manager to set your role and team.",
+    pendingSetup:"Awaiting setup by a manager", logout:"Log out",
+    nav_dashboard_emp:"My day", nav_timesheet:"Time and schedule", nav_leave:"Leave", nav_birthdays:"Birthdays",
+    nav_dashboard_sup:"Team overview", nav_teamtime_sup:"Team time", nav_schedule:"Schedules", nav_leaveapp:"Leave requests", nav_reports:"Monthly export",
+    nav_dashboard_mgr:"Company overview", nav_teamtime_mgr:"All time records", nav_people:"People",
+    goodDay:"Good day", officeClock:"Office time clock", todaySoFar:"Today so far",
+    start:"Start", breakLabel:"Break", end:"End",
+    stepStart:"Start work", stepBreakStart:"Start break", stepBreakEnd:"End break", stepEnd:"End work",
+    notifications:"Notifications", noNotifications:"No notifications.",
+    timeSchedTitle:"Time and schedule", timeSchedSub:"Your recorded hours and assigned timetable. You can't edit these — contact your supervisor for corrections.",
+    recentRecorded:"Recent recorded time", upcomingTimetable:"Upcoming timetable",
+    colDate:"Date", colStart:"Start", colBreak:"Break", colEnd:"End", colTotal:"Total",
+    colPlannedStart:"Planned start", colPlannedEnd:"Planned end",
+    noUpcomingTimetable:"No upcoming timetable assigned yet.",
+    leaveTitle:"Leave", leaveSub:"Submit vacation or sick leave and track your requests.",
+    vacRemaining:"Vacation days remaining", vacTaken:"Vacation days taken", vacEntitled:"Entitled per year",
+    newLeaveReq:"New leave request", myRequests:"My requests", noRequestsYet:"No requests yet.",
+    colType:"Type", colDates:"Dates", colDays:"Days", colStatus:"Status",
+    modalNewLeave:"New leave request", type:"Type", vacation:"Vacation / annual leave", sick:"Sick leave",
+    startDate:"Start date", endDate:"End date", reason:"Reason / remarks", optional:"Optional",
+    cancel:"Cancel", submitRequest:"Submit request", leaveSubmitted:"Leave request submitted",
+    teamOverviewTitle:"Team overview", teamOverviewSub:"Your team at a glance.",
+    companyOverviewTitle:"Company overview", companyOverviewSub:"Full visibility across STFacility.",
+    teamMembers:"Team members", employees:"Employees", clockedIn:"Currently clocked in",
+    pendingLeave:"Pending leave requests", directReports:"Direct reports", supervisors:"Supervisors",
+    clockActivity:"Today's clock activity", name:"Name", statusCol:"Status",
+    notStarted:"Not started", inProgress:"In progress", finished:"Finished",
+    recentCorrections:"Recent audit corrections", noCorrections:"No corrections logged.",
+    allTimeTitle:"All time records", teamTimeTitle:"Team time records",
+    timeRecordsSub:"View recorded hours. Corrections are logged to a database audit trail automatically — this can't be turned off from the app.",
+    employee:"Employee", correct:"Correct",
+    correctTimeTitle:"Correct time entry", correctTimeNote:"This is written to the database audit log automatically.",
+    field:"Field", newValue:"New value", reasonCorrection:"Reason for correction", saveCorrection:"Save correction",
+    correctionSaved:"Correction saved",
+    fieldStart:"Start time", fieldBreakStart:"Break start", fieldBreakEnd:"Break end", fieldEnd:"End time",
+    schedulesTitle:"Schedules", schedulesSub:"Create and adjust employee timetables. Employees see these but can't edit them.",
+    assignTimetable:"Assign timetable", noUpcomingTimetables:"No upcoming timetables.",
+    modalAssignTitle:"Assign timetable", employeeLabel:"Employee", date:"Date", breakMinutes:"Break (minutes)",
+    saveTimetable:"Save timetable", timetableAssigned:"Timetable assigned",
+    leaveReqTitle:"Leave requests", leaveReqSubSup:"Approve or reject requests from your team.",
+    leaveReqSubMgr:"Includes employee and supervisor leave requests.",
+    colReason:"Reason", accept:"Accept", reject:"Reject", noRequests:"No requests.", requestDecided:"Request",
+    reportsTitle:"Monthly export", reportsSub:"Download an Excel workbook with one tab per employee: daily start, break, end, and total hours worked.",
+    exportHeaderLabel:"Header name shown on the export (e.g. your company or the client site)",
+    downloadExcel:"Download Excel (.xlsx)", includedTabs:"Included tabs", excelExported:"Excel exported", building:"Building workbook…",
+    peopleTitle:"People", peopleSub:"Assign roles and supervisors, and remove people who've left.",
+    pendingPeople:"Awaiting setup", assignRole:"Assign", removeConfirm:"Are you sure? This can't be undone.",
+    remove:"Remove", roleEmployee:"Employee", roleSupervisor:"Supervisor", roleManager:"Manager", supervisorLabel:"Supervisor",
+    birthdaysTitle:"Birthdays", birthdaysSub:"Visible to everyone at STFacility.",
+    loading:"Loading…", needConfig:"This app isn't configured yet.",
+    needConfigDetail:"Open this file, find SUPABASE_URL and SUPABASE_ANON_KEY near the top of the script, and paste in your own project's values from the Supabase dashboard. See the setup guide for the full walkthrough.",
+    invalidCreds:"Couldn't sign in with those details.", emailInUse:"That email is already registered — try signing in instead.",
+    checkEmailConfirm:"Account created. Check your email to confirm it, then sign in.",
+    firstUserNote:"First time setting this up? After creating your account, follow the one-time step in the setup guide to make yourself the manager."
+  },
+  nl:{
+    appName:"STFacility Personeel", liveTag:"LIVE",
+    signInTitle:"Inloggen", signUpTitle:"Account aanmaken",
+    email:"E-mail", password:"Wachtwoord", fullName:"Volledige naam",
+    signIn:"Inloggen", signUp:"Account aanmaken", forgotPassword:"Wachtwoord vergeten?",
+    resetTitle:"Wachtwoord opnieuw instellen", resetSub:"Vul je e-mailadres in, we sturen een echte resetlink.",
+    resetEmailLabel:"E-mailadres", sendResetLink:"Resetlink versturen", resetSent:"Controleer je e-mail voor een resetlink.",
+    close:"Sluiten", signUpNote:"Nieuwe accounts starten als medewerker zonder toegewezen leidinggevende. Vraag je manager om je rol en team in te stellen.",
+    pendingSetup:"Wacht op instelling door manager", logout:"Uitloggen",
+    nav_dashboard_emp:"Mijn dag", nav_timesheet:"Uren en rooster", nav_leave:"Verlof", nav_birthdays:"Verjaardagen",
+    nav_dashboard_sup:"Teamoverzicht", nav_teamtime_sup:"Teamuren", nav_schedule:"Roosters", nav_leaveapp:"Verlofaanvragen", nav_reports:"Maandoverzicht",
+    nav_dashboard_mgr:"Bedrijfsoverzicht", nav_teamtime_mgr:"Alle urenregistraties", nav_people:"Personeel",
+    goodDay:"Goedendag", officeClock:"Prikklok op kantoor", todaySoFar:"Tot nu toe vandaag",
+    start:"Start", breakLabel:"Pauze", end:"Einde",
+    stepStart:"Start werk", stepBreakStart:"Start pauze", stepBreakEnd:"Einde pauze", stepEnd:"Einde werk",
+    notifications:"Meldingen", noNotifications:"Geen meldingen.",
+    timeSchedTitle:"Uren en rooster", timeSchedSub:"Je geregistreerde uren en toegewezen rooster. Je kunt dit niet aanpassen — neem contact op met je leidinggevende.",
+    recentRecorded:"Recent geregistreerde uren", upcomingTimetable:"Aankomend rooster",
+    colDate:"Datum", colStart:"Start", colBreak:"Pauze", colEnd:"Einde", colTotal:"Totaal",
+    colPlannedStart:"Geplande start", colPlannedEnd:"Gepland einde",
+    noUpcomingTimetable:"Nog geen rooster toegewezen.",
+    leaveTitle:"Verlof", leaveSub:"Dien vakantie- of ziekteverlof in en volg je aanvragen.",
+    vacRemaining:"Resterende vakantiedagen", vacTaken:"Opgenomen vakantiedagen", vacEntitled:"Recht per jaar",
+    newLeaveReq:"Nieuwe verlofaanvraag", myRequests:"Mijn aanvragen", noRequestsYet:"Nog geen aanvragen.",
+    colType:"Type", colDates:"Data", colDays:"Dagen", colStatus:"Status",
+    modalNewLeave:"Nieuwe verlofaanvraag", type:"Type", vacation:"Vakantie / jaarlijks verlof", sick:"Ziekteverlof",
+    startDate:"Startdatum", endDate:"Einddatum", reason:"Reden / opmerkingen", optional:"Optioneel",
+    cancel:"Annuleren", submitRequest:"Aanvraag indienen", leaveSubmitted:"Verlofaanvraag ingediend",
+    teamOverviewTitle:"Teamoverzicht", teamOverviewSub:"Je team in één oogopslag.",
+    companyOverviewTitle:"Bedrijfsoverzicht", companyOverviewSub:"Volledig overzicht van STFacility.",
+    teamMembers:"Teamleden", employees:"Medewerkers", clockedIn:"Nu ingeklokt",
+    pendingLeave:"Openstaande verlofaanvragen", directReports:"Directe medewerkers", supervisors:"Leidinggevenden",
+    clockActivity:"Kloktijden van vandaag", name:"Naam", statusCol:"Status",
+    notStarted:"Nog niet gestart", inProgress:"Bezig", finished:"Klaar",
+    recentCorrections:"Recente correcties (audit)", noCorrections:"Geen correcties vastgelegd.",
+    allTimeTitle:"Alle urenregistraties", teamTimeTitle:"Teamurenregistraties",
+    timeRecordsSub:"Bekijk geregistreerde uren. Correcties worden automatisch vastgelegd in het auditlogboek van de database.",
+    employee:"Medewerker", correct:"Corrigeren",
+    correctTimeTitle:"Tijdregistratie corrigeren", correctTimeNote:"Dit wordt automatisch vastgelegd in het auditlogboek.",
+    field:"Veld", newValue:"Nieuwe waarde", reasonCorrection:"Reden voor correctie", saveCorrection:"Correctie opslaan",
+    correctionSaved:"Correctie opgeslagen",
+    fieldStart:"Starttijd", fieldBreakStart:"Pauze start", fieldBreakEnd:"Pauze einde", fieldEnd:"Eindtijd",
+    schedulesTitle:"Roosters", schedulesSub:"Maak en pas roosters van medewerkers aan. Medewerkers zien dit, maar kunnen het niet bewerken.",
+    assignTimetable:"Rooster toewijzen", noUpcomingTimetables:"Geen aankomende roosters.",
+    modalAssignTitle:"Rooster toewijzen", employeeLabel:"Medewerker", date:"Datum", breakMinutes:"Pauze (minuten)",
+    saveTimetable:"Rooster opslaan", timetableAssigned:"Rooster toegewezen",
+    leaveReqTitle:"Verlofaanvragen", leaveReqSubSup:"Keur aanvragen van je team goed of af.",
+    leaveReqSubMgr:"Inclusief verlofaanvragen van medewerkers en leidinggevenden.",
+    colReason:"Reden", accept:"Goedkeuren", reject:"Afwijzen", noRequests:"Geen aanvragen.", requestDecided:"Aanvraag",
+    reportsTitle:"Maandoverzicht", reportsSub:"Download een Excel-bestand met één tabblad per medewerker: dagelijkse start, pauze, einde en totaal gewerkte uren.",
+    exportHeaderLabel:"Naam bovenaan het exportbestand", downloadExcel:"Download Excel (.xlsx)",
+    includedTabs:"Opgenomen tabbladen", excelExported:"Excel geëxporteerd", building:"Bestand wordt gemaakt…",
+    peopleTitle:"Personeel", peopleSub:"Wijs rollen en leidinggevenden toe, en verwijder mensen die weg zijn.",
+    pendingPeople:"Wacht op instelling", assignRole:"Toewijzen", removeConfirm:"Weet je het zeker? Dit kan niet ongedaan worden gemaakt.",
+    remove:"Verwijderen", roleEmployee:"Medewerker", roleSupervisor:"Leidinggevende", roleManager:"Manager", supervisorLabel:"Leidinggevende",
+    birthdaysTitle:"Verjaardagen", birthdaysSub:"Zichtbaar voor iedereen bij STFacility.",
+    loading:"Laden…", needConfig:"Deze app is nog niet ingesteld.",
+    needConfigDetail:"Open dit bestand, zoek SUPABASE_URL en SUPABASE_ANON_KEY bovenaan het script, en vul de waarden van je eigen Supabase-project in. Zie de installatiehandleiding voor de volledige uitleg.",
+    invalidCreds:"Inloggen met die gegevens is niet gelukt.", emailInUse:"Dit e-mailadres is al geregistreerd — probeer in te loggen.",
+    checkEmailConfirm:"Account aangemaakt. Bevestig via e-mail en log daarna in.",
+    firstUserNote:"Voor het eerst instellen? Volg na het aanmaken van je account de eenmalige stap in de installatiehandleiding om jezelf manager te maken."
+  }
+};
+function t(key){ return (I18N[state.lang] && I18N[state.lang][key]) || I18N.en[key] || key; }
+/* ---------------- state ---------------- */
+let state = {
+  lang: 'en',
+  ready: false,
+  session: null,
+  profile: null,        // current user's profile row
+  authMode: 'signin',    // 'signin' | 'signup'
+  authError: null,
+  authBusy: false,
+  page: 'dashboard',
+  modal: null,
+  toast: null,
+  // page data caches (fetched per page)
+  todayEntry: null,
+  myEntries: [],
+  myTimetable: [],
+  myLeave: [],
+  myBalance: null,
+  notifications: [],
+  team: [],
+  teamTimeRows: [],
+  corrections: [],
+  leaveRequests: [],
+  people: [],
+  birthdays: [],
+  exportHeaderName: 'STFacility',
+};
+
+function iso(d){ return d.toISOString().slice(0,10); }
+const today = new Date();
+function fmtDate(d){ return new Date(d).toLocaleDateString(state.lang==='nl'?'nl-NL':'en-GB',{day:'2-digit',month:'short'}); }
+function initials(name){ return (name||'?').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase(); }
+function showToast(msg){ state.toast = msg; render(); setTimeout(()=>{ state.toast=null; render(); }, 2600); }
+function setLang(l){ state.lang = l; render(); }
+function minutesBetween(a,b){ if(!a||!b) return 0; const [ah,am]=a.split(':').map(Number); const [bh,bm]=b.split(':').map(Number); return (bh*60+bm)-(ah*60+am); }
+function totalWorked(entry){
+  if(!entry || !entry.clock_in || !entry.clock_out) return null;
+  let mins = minutesBetween(entry.clock_in, entry.clock_out);
+  if(entry.break_start && entry.break_end) mins -= minutesBetween(entry.break_start, entry.break_end);
+  const h = Math.floor(mins/60), m = mins%60;
+  return `${h}h ${m}m`;
+}
+
+const NAV = {
+  employee: [ {key:'dashboard', tk:'nav_dashboard_emp'}, {key:'timesheet', tk:'nav_timesheet'}, {key:'leave', tk:'nav_leave'}, {key:'birthdays', tk:'nav_birthdays'} ],
+  supervisor: [ {key:'dashboard', tk:'nav_dashboard_sup'}, {key:'team-time', tk:'nav_teamtime_sup'}, {key:'schedule', tk:'nav_schedule'}, {key:'leave-approvals', tk:'nav_leaveapp'}, {key:'reports', tk:'nav_reports'}, {key:'birthdays', tk:'nav_birthdays'} ],
+  manager: [ {key:'dashboard', tk:'nav_dashboard_mgr'}, {key:'team-time', tk:'nav_teamtime_mgr'}, {key:'schedule', tk:'nav_schedule'}, {key:'leave-approvals', tk:'nav_leaveapp'}, {key:'people', tk:'nav_people'}, {key:'reports', tk:'nav_reports'}, {key:'birthdays', tk:'nav_birthdays'} ]
+};
+
+/* ---------------- auth ---------------- */
+async function initApp(){
+  render();
+  if(!CONFIGURED){ state.ready = true; render(); return; }
+  const { data: { session } } = await sb.auth.getSession();
+  state.session = session;
+  if(session){ await loadProfile(); }
+  state.ready = true;
+  render();
+  sb.auth.onAuthStateChange(async (event, session)=>{
+    state.session = session;
+    if(session && !state.profile){ await loadProfile(); await loadPageData(); }
+    if(!session){ state.profile = null; }
+    render();
+  });
+}
+async function loadProfile(){
+  const { data, error } = await sb.from('profiles').select('*').eq('id', state.session.user.id).maybeSingle();
+  if(!error) state.profile = data;
+}
+function setAuthMode(mode){ state.authMode = mode; state.authError = null; render(); }
+async function submitAuth(){
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const name = state.authMode==='signup' ? document.getElementById('auth-name').value.trim() : null;
+  if(!email || !password || (state.authMode==='signup' && !name)) return;
+  state.authBusy = true; state.authError = null; render();
+  if(state.authMode==='signup'){
+    const { data, error } = await sb.auth.signUp({ email, password, options:{ data:{ name } } });
+    state.authBusy = false;
+    if(error){ state.authError = error.message.includes('registered') ? t('emailInUse') : error.message; render(); return; }
+    if(data.session){ state.session = data.session; await loadProfile(); state.page='dashboard'; render(); }
+    else { state.authError = null; showToast(t('checkEmailConfirm')); setAuthMode('signin'); }
+    return;
+  }
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  state.authBusy = false;
+  if(error){ state.authError = t('invalidCreds'); render(); return; }
+  state.session = data.session;
+  await loadProfile();
+  state.page = 'dashboard';
+  await loadPageData();
+  render();
+}
+async function signOut(){
+  await sb.auth.signOut();
+  state.session = null; state.profile = null; state.page='dashboard';
+  render();
+}
+function openForgotPassword(){
+  state.modal = `
+    <div class="modal-bg" onclick="if(event.target===this){state.modal=null;render();}">
+      <div class="modal">
+        <h3 style="margin-top:0">${t('resetTitle')}</h3>
+        <p class="page-sub" style="margin-bottom:14px">${t('resetSub')}</p>
+        <div class="field"><label>${t('resetEmailLabel')}</label><input type="email" id="reset-email" placeholder="name@stfacility.nl"></div>
+        <div id="reset-confirm" style="display:none" class="success-text">${t('resetSent')}</div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px">
+          <button class="btn" onclick="state.modal=null;render();">${t('close')}</button>
+          <button class="btn btn-primary" onclick="sendResetLink()">${t('sendResetLink')}</button>
+        </div>
+      </div>
+    </div>`;
+  render();
+}
+async function sendResetLink(){
+  const email = document.getElementById('reset-email').value.trim();
+  if(!email) return;
+  await sb.auth.resetPasswordForEmail(email);
+  document.getElementById('reset-confirm').style.display = 'block';
+}
+
+/* ---------------- page data loading ---------------- */
+async function loadPageData(){
+  if(!state.profile) return;
+  const role = state.profile.role;
+  const uid = state.profile.id;
+  if(state.page==='dashboard' && role==='employee'){
+    const { data: e } = await sb.from('time_entries').select('*').eq('user_id', uid).eq('date', iso(today)).maybeSingle();
+    state.todayEntry = e || null;
+    const { data: notifs } = await sb.from('notifications').select('*').eq('user_id', uid).order('created_at',{ascending:false}).limit(8);
+    state.notifications = notifs || [];
+  }
+  if(state.page==='timesheet'){
+    const { data: entries } = await sb.from('time_entries').select('*').eq('user_id', uid).order('date',{ascending:false}).limit(14);
+    state.myEntries = entries || [];
+    const { data: tt } = await sb.from('timetables').select('*').eq('user_id', uid).gte('date', iso(today)).order('date');
+    state.myTimetable = tt || [];
+  }
+  if(state.page==='leave' && role==='employee'){
+    const { data: reqs } = await sb.from('leave_requests').select('*').eq('user_id', uid).order('submitted_at',{ascending:false});
+    state.myLeave = reqs || [];
+    const { data: bal } = await sb.from('leave_balances').select('*').eq('user_id', uid).maybeSingle();
+    state.myBalance = bal || {entitled:25, taken:0};
+  }
+  if(state.page==='dashboard' && role!=='employee'){
+    await loadTeamOverview();
+  }
+  if(state.page==='team-time'){
+    await loadTeamTime();
+  }
+  if(state.page==='schedule'){
+    await loadTeam();
+    const teamIds = state.team.map(p=>p.id);
+    const { data: tt } = await sb.from('timetables').select('*, profiles!timetables_user_id_fkey(name)').in('user_id', teamIds.length?teamIds:['00000000-0000-0000-0000-000000000000']).gte('date', iso(today)).order('date');
+    state.teamTimetables = tt || [];
+  }
+  if(state.page==='leave-approvals'){
+    await loadTeam();
+    const teamIds = state.team.map(p=>p.id);
+    const { data: reqs } = await sb.from('leave_requests').select('*, profiles!leave_requests_user_id_fkey(name)').in('user_id', teamIds.length?teamIds:['00000000-0000-0000-0000-000000000000']).order('submitted_at',{ascending:false});
+    state.leaveRequests = reqs || [];
+  }
+  if(state.page==='reports'){
+    await loadTeam();
+  }
+  if(state.page==='people' && role==='manager'){
+    const { data: people } = await sb.from('profiles').select('*').order('role');
+    state.people = people || [];
+  }
+  if(state.page==='birthdays'){
+    const { data: bdays } = await sb.from('birthday_directory').select('*');
+    state.birthdays = (bdays||[]).map(u=>{
+      const bd = u.birthday ? new Date(u.birthday) : null;
+      let next = bd ? new Date(today.getFullYear(), bd.getMonth(), bd.getDate()) : null;
+      if(next && next < today) next.setFullYear(today.getFullYear()+1);
+      return {...u, nextBday: next};
+    }).filter(u=>u.nextBday).sort((a,b)=>a.nextBday-b.nextBday).slice(0,8);
+  }
+}
+async function loadTeam(){
+  const role = state.profile.role;
+  if(role==='manager'){
+    const { data } = await sb.from('profiles').select('*').eq('role','employee');
+    state.team = data || [];
+  } else {
+    const { data } = await sb.from('profiles').select('*').eq('supervisor_id', state.profile.id);
+    state.team = data || [];
+  }
+}
+async function loadTeamOverview(){
+  await loadTeam();
+  const teamIds = state.team.map(p=>p.id);
+  if(!teamIds.length){ state.teamTimeRows = []; state.leaveRequests = []; state.corrections = []; return; }
+  const { data: rows } = await sb.from('time_entries').select('*').in('user_id', teamIds).eq('date', iso(today));
+  state.teamTimeRows = rows || [];
+  const { data: pending } = await sb.from('leave_requests').select('*').in('user_id', teamIds).eq('status','pending');
+  state.leaveRequests = pending || [];
+  const { data: corr } = await sb.from('time_corrections').select('*, profiles!time_corrections_time_entry_user_id_fkey(name)').in('time_entry_user_id', teamIds).order('corrected_at',{ascending:false}).limit(5);
+  state.corrections = corr || [];
+}
+async function loadTeamTime(){
+  await loadTeam();
+  const teamIds = state.team.map(p=>p.id);
+  if(!teamIds.length){ state.teamTimeRows = []; return; }
+  const { data } = await sb.from('time_entries').select('*, profiles!time_entries_user_id_fkey(name)').in('user_id', teamIds).order('date',{ascending:false}).limit(30);
+  state.teamTimeRows = data || [];
+}
+
+/* ---------------- actions ---------------- */
+async function clockAction(step){
+  const uid = state.profile.id;
+  const time = new Date().toTimeString().slice(0,5);
+  const { data: existing } = await sb.from('time_entries').select('*').eq('user_id', uid).eq('date', iso(today)).maybeSingle();
+  const payload = existing ? {...existing} : {user_id: uid, date: iso(today)};
+  payload[step] = time;
+  const { error } = await sb.from('time_entries').upsert(payload, {onConflict:'user_id,date'});
+  if(error){ showToast(error.message); return; }
+  showToast(time);
+  await loadPageData();
+  render();
+}
+function openLeaveForm(){
+  state.modal = `
+    <div class="modal-bg" onclick="if(event.target===this){state.modal=null;render();}">
+      <div class="modal">
+        <h3 style="margin-top:0">${t('modalNewLeave')}</h3>
+        <div class="field"><label>${t('type')}</label>
+          <select id="lf-type"><option value="vacation">${t('vacation')}</option><option value="sick">${t('sick')}</option></select>
+        </div>
+        <div class="row">
+          <div class="field"><label>${t('startDate')}</label><input type="date" id="lf-start" value="${iso(today)}"></div>
+          <div class="field"><label>${t('endDate')}</label><input type="date" id="lf-end" value="${iso(today)}"></div>
+        </div>
+        <div class="field"><label>${t('reason')}</label><textarea id="lf-reason" rows="3" placeholder="${t('optional')}"></textarea></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+          <button class="btn" onclick="state.modal=null;render();">${t('cancel')}</button>
+          <button class="btn btn-primary" onclick="submitLeaveFromForm()">${t('submitRequest')}</button>
+        </div>
+      </div>
+    </div>`;
+  render();
+}
+async function submitLeaveFromForm(){
+  const type = document.getElementById('lf-type').value;
+  const start_date = document.getElementById('lf-start').value;
+  const end_date = document.getElementById('lf-end').value;
+  const reason = document.getElementById('lf-reason').value;
+  const days = Math.max(1, Math.round((new Date(end_date)-new Date(start_date))/86400000)+1);
+  const { error } = await sb.from('leave_requests').insert({ user_id: state.profile.id, type, start_date, end_date, days, reason, status:'pending' });
+  if(error){ showToast(error.message); return; }
+  if(state.profile.supervisor_id){
+    await sb.from('notifications').insert({ user_id: state.profile.supervisor_id, message: `${state.profile.name} — ${type} request submitted` });
+  }
+  await sb.from('notifications').insert({ user_id: state.profile.id, message: t('leaveSubmitted') });
+  state.modal = null;
+  showToast(t('leaveSubmitted'));
+  await loadPageData();
+  render();
+}
+async function decideLeave(id, decision, userId){
+  const { error } = await sb.from('leave_requests').update({ status: decision, decided_by: state.profile.id, decided_at: new Date().toISOString() }).eq('id', id);
+  if(error){ showToast(error.message); return; }
+  await sb.from('notifications').insert({ user_id: userId, message: `${t('requestDecided')}: ${decision}` });
+  showToast(`${t('requestDecided')}: ${decision}`);
+  await loadPageData();
+  render();
+}
+function openCorrectForm(userId, date, userName){
+  state.modal = `
+    <div class="modal-bg" onclick="if(event.target===this){state.modal=null;render();}">
+      <div class="modal">
+        <h3 style="margin-top:0">${t('correctTimeTitle')}</h3>
+        <p class="page-sub" style="margin-bottom:14px">${userName} — ${fmtDate(date)}. ${t('correctTimeNote')}</p>
+        <div class="row">
+          <div class="field"><label>${t('field')}</label>
+            <select id="cf-field">
+              <option value="clock_in">${t('fieldStart')}</option>
+              <option value="break_start">${t('fieldBreakStart')}</option>
+              <option value="break_end">${t('fieldBreakEnd')}</option>
+              <option value="clock_out">${t('fieldEnd')}</option>
+            </select>
+          </div>
+          <div class="field"><label>${t('newValue')}</label><input type="time" id="cf-value" value="17:00"></div>
+        </div>
+        <div class="field"><label>${t('reasonCorrection')}</label><textarea id="cf-reason" rows="2" placeholder="e.g. Forgot to clock out"></textarea></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+          <button class="btn" onclick="state.modal=null;render();">${t('cancel')}</button>
+          <button class="btn btn-primary" onclick="correctTime('${userId}','${date}', document.getElementById('cf-field').value, document.getElementById('cf-value').value, document.getElementById('cf-reason').value)">${t('saveCorrection')}</button>
+        </div>
+      </div>
+    </div>`;
+  render();
+}
+async function correctTime(userId, date, field, value, reason){
+  const { error } = await sb.from('time_entries').update({ [field]: value }).eq('user_id', userId).eq('date', date);
+  if(error){ showToast(error.message); return; }
+  // best-effort: attach the reason to the correction row the trigger just wrote
+  const { data: rows } = await sb.from('time_corrections').select('id').eq('time_entry_user_id', userId).eq('date', date).eq('field', field).order('corrected_at',{ascending:false}).limit(1);
+  if(rows && rows[0]) await sb.from('time_corrections').update({ reason }).eq('id', rows[0].id);
+  state.modal = null;
+  showToast(t('correctionSaved'));
+  await loadPageData();
+  render();
+}
+function openScheduleForm(){
+  state.modal = `
+    <div class="modal-bg" onclick="if(event.target===this){state.modal=null;render();}">
+      <div class="modal">
+        <h3 style="margin-top:0">${t('modalAssignTitle')}</h3>
+        <div class="field"><label>${t('employeeLabel')}</label>
+          <select id="sf-emp">${state.team.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}</select>
+        </div>
+        <div class="field"><label>${t('date')}</label><input type="date" id="sf-date" value="${iso(today)}"></div>
+        <div class="row">
+          <div class="field"><label>${t('colStart')}</label><input type="time" id="sf-start" value="08:00"></div>
+          <div class="field"><label>${t('colEnd')}</label><input type="time" id="sf-end" value="17:00"></div>
+        </div>
+        <div class="field"><label>${t('breakMinutes')}</label><input type="number" id="sf-break" value="30"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+          <button class="btn" onclick="state.modal=null;render();">${t('cancel')}</button>
+          <button class="btn btn-primary" onclick="saveSchedule()">${t('saveTimetable')}</button>
+        </div>
+      </div>
+    </div>`;
+  render();
+}
+async function saveSchedule(){
+  const userId = document.getElementById('sf-emp').value;
+  const date = document.getElementById('sf-date').value;
+  const planned_start = document.getElementById('sf-start').value;
+  const planned_end = document.getElementById('sf-end').value;
+  const planned_break_minutes = Number(document.getElementById('sf-break').value);
+  const { error } = await sb.from('timetables').insert({ user_id:userId, date, planned_start, planned_end, planned_break_minutes, created_by: state.profile.id });
+  if(error){ showToast(error.message); return; }
+  await sb.from('notifications').insert({ user_id:userId, message: `${t('timetableAssigned')} — ${fmtDate(date)}` });
+  state.modal = null;
+  showToast(t('timetableAssigned'));
+  await loadPageData();
+  render();
+}
+function openAssignForm(personId){
+  const person = state.people.find(p=>p.id===personId);
+  const supervisors = state.people.filter(p=>p.role==='supervisor');
+  state.modal = `
+    <div class="modal-bg" onclick="if(event.target===this){state.modal=null;render();}">
+      <div class="modal">
+        <h3 style="margin-top:0">${t('assignRole')}: ${person.name}</h3>
+        <div class="field"><label>${t('type')}</label>
+          <select id="asg-role" onchange="document.getElementById('asg-sup-field').style.display=this.value==='employee'?'block':'none'">
+            <option value="employee" ${person.role==='employee'?'selected':''}>${t('roleEmployee')}</option>
+            <option value="supervisor" ${person.role==='supervisor'?'selected':''}>${t('roleSupervisor')}</option>
+            <option value="manager" ${person.role==='manager'?'selected':''}>${t('roleManager')}</option>
+          </select>
+        </div>
+        <div class="field" id="asg-sup-field" style="display:${person.role==='employee'?'block':'none'}">
+          <label>${t('supervisorLabel')}</label>
+          <select id="asg-sup">${supervisors.map(s=>`<option value="${s.id}" ${person.supervisor_id===s.id?'selected':''}>${s.name}</option>`).join('')}</select>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+          <button class="btn" onclick="state.modal=null;render();">${t('cancel')}</button>
+          <button class="btn btn-primary" onclick="saveAssignment('${personId}')">${t('assignRole')}</button>
+        </div>
+      </div>
+    </div>`;
+  render();
+}
+async function saveAssignment(personId){
+  const role = document.getElementById('asg-role').value;
+  const supervisor_id = role==='employee' ? document.getElementById('asg-sup').value : null;
+  const { error } = await sb.from('profiles').update({ role, supervisor_id }).eq('id', personId);
+  if(error){ showToast(error.message); return; }
+  state.modal = null;
+  showToast(t('assignRole'));
+  await loadPageData();
+  render();
+}
+function confirmRemovePerson(personId, name){
+  state.modal = `
+    <div class="modal-bg" onclick="if(event.target===this){state.modal=null;render();}">
+      <div class="modal">
+        <h3 style="margin-top:0">${t('remove')}: ${name}</h3>
+        <p class="page-sub">${t('removeConfirm')}</p>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+          <button class="btn" onclick="state.modal=null;render();">${t('cancel')}</button>
+          <button class="btn btn-reject" onclick="removePerson('${personId}')">${t('remove')}</button>
+        </div>
+      </div>
+    </div>`;
+  render();
+}
+async function removePerson(personId){
+  const { error } = await sb.from('profiles').delete().eq('id', personId);
+  if(error){ showToast(error.message); return; }
+  state.modal = null;
+  showToast(t('remove'));
+  await loadPageData();
+  render();
+}
+
+/* ---------------- Excel export (matches the uploaded sample format) ---------------- */
+function excelSerial(y,m,d){ return Math.round((Date.UTC(y,m-1,d) - Date.UTC(1899,11,30))/86400000); }
+function timeFraction(hhmm){ if(!hhmm) return null; const [h,m]=hhmm.split(':').map(Number); return (h*60+m)/1440; }
+function buildEmployeeSheet(emp, year, month, entriesForEmp){
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const ws = {};
+  for(let d=1; d<=daysInMonth; d++){
+    const row = d+1;
+    const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const entry = entriesForEmp.find(e=>e.date===dateStr);
+    ws['A'+row] = {t:'n', v: excelSerial(year,month,d), z:'dddd, mmmm dd, yyyy'};
+    const startFrac = entry ? timeFraction(entry.clock_in) : null;
+    const endFrac = entry ? timeFraction(entry.clock_out) : null;
+    let pauzeFrac = 0;
+    if(entry && entry.break_start && entry.break_end) pauzeFrac = minutesBetween(entry.break_start, entry.break_end)/1440;
+    ws['C'+row] = {t:'n', v: pauzeFrac, z:'h:mm'};
+    if(startFrac!==null) ws['B'+row] = {t:'n', v: startFrac, z:'h:mm'};
+    if(endFrac!==null) ws['D'+row] = {t:'n', v: endFrac, z:'h:mm'};
+    ws['E'+row] = {t:'n', v: (endFrac!==null && startFrac!==null) ? (endFrac-startFrac-pauzeFrac) : 0, f:`(D${row}-B${row})-C${row}`, z:'h:mm'};
+  }
+  ws['A1'] = {t:'s', v: state.exportHeaderName || 'STFacility', z:'dddd, mmmm dd, yyyy'};
+  ws['B1'] = {t:'s', v:'START'}; ws['C1'] = {t:'s', v:'PAUZE'}; ws['D1'] = {t:'s', v:'EINDE'}; ws['E1'] = {t:'s', v:'TOTAAL'};
+  ws['F1'] = {t:'s', v: emp.name.toUpperCase()};
+  const totalRow = daysInMonth+2;
+  ws['A'+totalRow] = {t:'s', v:'                           TOTAAL'};
+  ws['E'+totalRow] = {t:'n', v:0, f:`SUMIF(E2:E${daysInMonth+1},">"&0)`, z:'[h]:mm:ss'};
+  ws['!ref'] = XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:totalRow-1, c:5}});
+  ws['!cols'] = [{wch:26},{wch:8},{wch:8},{wch:8},{wch:10},{wch:16}];
+  return ws;
+}
+async function exportMonthlyExcel(){
+  showToast(t('building'));
+  const year = today.getFullYear(), month = today.getMonth()+1;
+  const monthStart = `${year}-${String(month).padStart(2,'0')}-01`;
+  const monthEnd = `${year}-${String(month).padStart(2,'0')}-${String(new Date(year,month,0).getDate()).padStart(2,'0')}`;
+  const teamIds = state.team.map(p=>p.id);
+  if(!teamIds.length){ showToast('—'); return; }
+  const { data: entries } = await sb.from('time_entries').select('*').in('user_id', teamIds).gte('date', monthStart).lte('date', monthEnd);
+  const wb = XLSX.utils.book_new();
+  const usedNames = {};
+  state.team.forEach(emp=>{
+    const entriesForEmp = (entries||[]).filter(e=>e.user_id===emp.id);
+    const ws = buildEmployeeSheet(emp, year, month, entriesForEmp);
+    let tabName = emp.name.split(' ')[0].slice(0,31);
+    if(usedNames[tabName]){ usedNames[tabName]++; tabName = (tabName.slice(0,28)+'_'+usedNames[tabName]); } else { usedNames[tabName]=1; }
+    XLSX.utils.book_append_sheet(wb, ws, tabName);
+  });
+  XLSX.writeFile(wb, `${(state.exportHeaderName||'STFacility').replace(/[^a-z0-9]+/gi,'_')}_${year}_${String(month).padStart(2,'0')}.xlsx`);
+  showToast(t('excelExported'));
+}
+
+/* ---------------- render ---------------- */
+function setPage(p){ state.page = p; state.modal = null; render(); loadPageData().then(render); }
+
+function render(){
+  const app = document.getElementById('app');
+  if(!state.ready){ app.innerHTML = `<div class="login-wrap"><div style="color:var(--ink-soft)">${t('loading')}</div></div>`; return; }
+  if(!CONFIGURED){ app.innerHTML = renderConfigNeeded(); return; }
+  if(!state.session || !state.profile){ app.innerHTML = renderAuth(); return; }
+  const role = state.profile.role;
+  const nav = NAV[role];
+  app.innerHTML = `
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-mark">ST</div>
+        <div>
+          <div class="brand-name">${t('appName')} <span style="background:var(--green);color:#fff;font-size:10px;padding:3px 8px;border-radius:20px;font-weight:600;">${t('liveTag')}</span></div>
+          <div class="brand-sub">Real accounts · Postgres · Row Level Security</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="lang-toggle">
+          <button class="lang-btn ${state.lang==='en'?'active':''}" onclick="setLang('en')">EN</button>
+          <button class="lang-btn ${state.lang==='nl'?'active':''}" onclick="setLang('nl')">NL</button>
+        </div>
+        <div class="user-chip">
+          <div class="avatar-sm">${initials(state.profile.name)}</div>
+          <div><div>${state.profile.name}</div><div style="color:#B9C6D6;font-size:11px;text-transform:capitalize">${role}</div></div>
+        </div>
+        <button class="logout-btn" onclick="signOut()">${t('logout')}</button>
+      </div>
+    </div>
+    <div class="layout">
+      <div class="sidebar">${nav.map(n=>`<div class="nav-item ${state.page===n.key?'active':''}" onclick="setPage('${n.key}')">${t(n.tk)}</div>`).join('')}</div>
+      <div class="main">${renderPage()}</div>
+    </div>
+    ${state.modal || ''}
+    ${state.toast?`<div class="toast">${state.toast}</div>`:''}
+  `;
+}
+function renderConfigNeeded(){
+  return `<div class="login-wrap"><div class="login-card">
+    <div class="login-logo"><div class="brand-mark" style="width:40px;height:40px;font-size:16px;">ST</div></div>
+    <div class="login-title">${t('needConfig')}</div>
+    <div class="config-warning">${t('needConfigDetail')}</div>
+  </div></div>`;
+}
+function renderAuth(){
+  const isSignup = state.authMode==='signup';
+  return `
+    <div class="login-wrap">
+      <div class="login-lang">
+        <div class="lang-toggle" style="border-color:var(--line)">
+          <button class="lang-btn" style="background:${state.lang==='en'?'var(--blue)':'var(--paper)'};color:${state.lang==='en'?'#fff':'var(--ink-soft)'};border-right:1px solid var(--line)" onclick="setLang('en')">EN</button>
+          <button class="lang-btn" style="background:${state.lang==='nl'?'var(--blue)':'var(--paper)'};color:${state.lang==='nl'?'#fff':'var(--ink-soft)'}" onclick="setLang('nl')">NL</button>
+        </div>
+      </div>
+      <div class="login-card">
+        <div class="login-logo"><div class="brand-mark" style="width:40px;height:40px;font-size:16px;">ST</div></div>
+        <div class="login-title">${isSignup?t('signUpTitle'):t('signInTitle')}</div>
+        <div class="login-tabs">
+          <div class="login-tab ${!isSignup?'active':''}" onclick="setAuthMode('signin')">${t('signInTitle')}</div>
+          <div class="login-tab ${isSignup?'active':''}" onclick="setAuthMode('signup')">${t('signUpTitle')}</div>
+        </div>
+        ${isSignup?`<div class="field"><label>${t('fullName')}</label><input id="auth-name" placeholder="Jane Doe"></div>`:''}
+        <div class="field"><label>${t('email')}</label><input type="email" id="auth-email" autocomplete="username" placeholder="name@stfacility.nl"></div>
+        <div class="field"><label>${t('password')}</label><input type="password" id="auth-password" autocomplete="${isSignup?'new-password':'current-password'}" placeholder="••••••••"></div>
+        ${state.authError?`<div class="error-text">${state.authError}</div>`:''}
+        <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:6px" ${state.authBusy?'disabled':''} onclick="submitAuth()">${isSignup?t('signUp'):t('signIn')}</button>
+        ${isSignup?`<p class="page-sub" style="margin-top:14px;font-size:12px">${t('signUpNote')}</p><p class="page-sub" style="font-size:12px">${t('firstUserNote')}</p>`:`
+        <div style="text-align:center;margin-top:14px"><a href="#" style="color:var(--blue);font-size:12.5px;text-decoration:none" onclick="event.preventDefault();openForgotPassword()">${t('forgotPassword')}</a></div>`}
+      </div>
+    </div>`;
+}
+function renderPage(){
+  if(!state.profile.supervisor_id && state.profile.role==='employee' && !state.team){ /* no-op guard */ }
+  const role = state.profile.role;
+  const page = state.page;
+  if(page==='dashboard') return role==='employee' ? pageEmployeeDashboard() : pageTeamDashboard();
+  if(page==='timesheet') return pageTimesheet();
+  if(page==='leave') return pageLeaveEmployee();
+  if(page==='team-time') return pageTeamTime();
+  if(page==='schedule') return pageSchedule();
+  if(page==='leave-approvals') return pageLeaveApprovals();
+  if(page==='reports') return pageReports();
+  if(page==='people') return pagePeople();
+  if(page==='birthdays') return pageBirthdays();
+  return '';
+}
+
+function pageEmployeeDashboard(){
+  if(!state.profile.supervisor_id){
+    return `<div class="card">${t('pendingSetup')}</div>`;
+  }
+  const e = state.todayEntry;
+  const step = !e || !e.clock_in ? 'clock_in' : !e.break_start ? 'break_start' : !e.break_end ? 'break_end' : !e.clock_out ? 'clock_out' : 'done';
+  const labels = {clock_in:t('stepStart'), break_start:t('stepBreakStart'), break_end:t('stepBreakEnd'), clock_out:t('stepEnd')};
+  const worked = totalWorked(e);
+  return `
+    <h1 class="page-title">${t('goodDay')}, ${state.profile.name.split(' ')[0]}</h1>
+    <p class="page-sub">${today.toLocaleDateString(state.lang==='nl'?'nl-NL':'en-GB',{weekday:'long', day:'numeric', month:'long'})}</p>
+    <div class="grid grid-2">
+      <div class="clock-box">
+        <div class="clock-time" id="clockface">--:--</div>
+        <div class="clock-date">${t('officeClock')}</div>
+        <div class="clock-buttons">
+          ${['clock_in','break_start','break_end','clock_out'].map(s=>{
+            const done = e && e[s]; const isNext = s===step;
+            return `<button class="clock-btn ${isNext?'active-step':''}" ${done||!isNext?'disabled':''} onclick="clockAction('${s}')">${done? (labels[s]+' ✓ '+e[s].slice(0,5)) : labels[s]}</button>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="card">
+        <p class="stat-label">${t('todaySoFar')}</p>
+        <p class="stat-value blue">${worked || '—'}</p>
+        <table style="margin-top:14px">
+          <tr><td>${t('start')}</td><td style="text-align:right">${e&&e.clock_in?e.clock_in.slice(0,5):'—'}</td></tr>
+          <tr><td>${t('breakLabel')}</td><td style="text-align:right">${e&&e.break_start?e.break_start.slice(0,5)+' – '+(e.break_end?e.break_end.slice(0,5):'…'):'—'}</td></tr>
+          <tr><td>${t('end')}</td><td style="text-align:right">${e&&e.clock_out?e.clock_out.slice(0,5):'—'}</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="section-title">${t('notifications')}</div>
+    <div class="card">${state.notifications.length? state.notifications.map(n=>`<div class="notif-item"><div class="notif-dot"></div><div><div>${n.message}</div><div class="notif-time">${new Date(n.created_at).toLocaleString()}</div></div></div>`).join('') : `<div class="empty">${t('noNotifications')}</div>`}</div>
+  `;
+}
+
+function pageTimesheet(){
+  return `
+    <h1 class="page-title">${t('timeSchedTitle')}</h1>
+    <p class="page-sub">${t('timeSchedSub')}</p>
+    <div class="section-title">${t('recentRecorded')}</div>
+    <div class="card"><table>
+      <tr><th>${t('colDate')}</th><th>${t('colStart')}</th><th>${t('colBreak')}</th><th>${t('colEnd')}</th><th>${t('colTotal')}</th></tr>
+      ${state.myEntries.map(e=>`<tr><td>${fmtDate(e.date)}</td><td>${e.clock_in?e.clock_in.slice(0,5):'—'}</td><td>${e.break_start?e.break_start.slice(0,5)+'–'+e.break_end.slice(0,5):'—'}</td><td>${e.clock_out?e.clock_out.slice(0,5):'—'}</td><td>${totalWorked(e)||'—'}</td></tr>`).join('') || `<tr><td class="empty" colspan="5">—</td></tr>`}
+    </table></div>
+    <div class="section-title">${t('upcomingTimetable')}</div>
+    <div class="card"><table>
+      <tr><th>${t('colDate')}</th><th>${t('colPlannedStart')}</th><th>${t('colPlannedEnd')}</th><th>${t('colBreak')}</th></tr>
+      ${state.myTimetable.map(tt=>`<tr><td>${fmtDate(tt.date)}</td><td>${tt.planned_start.slice(0,5)}</td><td>${tt.planned_end.slice(0,5)}</td><td>${tt.planned_break_minutes} min</td></tr>`).join('') || `<tr><td class="empty" colspan="4">${t('noUpcomingTimetable')}</td></tr>`}
+    </table></div>
+  `;
+}
+
+function pageLeaveEmployee(){
+  const bal = state.myBalance || {entitled:25, taken:0};
+  return `
+    <h1 class="page-title">${t('leaveTitle')}</h1>
+    <p class="page-sub">${t('leaveSub')}</p>
+    <div class="grid grid-3">
+      <div class="card"><p class="stat-label">${t('vacRemaining')}</p><p class="stat-value green">${bal.entitled-bal.taken}</p></div>
+      <div class="card"><p class="stat-label">${t('vacTaken')}</p><p class="stat-value">${bal.taken}</p></div>
+      <div class="card"><p class="stat-label">${t('vacEntitled')}</p><p class="stat-value">${bal.entitled}</p></div>
+    </div>
+    <div style="margin-top:20px"><button class="btn btn-primary" onclick="openLeaveForm()">+ ${t('newLeaveReq')}</button></div>
+    <div class="section-title">${t('myRequests')}</div>
+    <div class="card"><table>
+      <tr><th>${t('colType')}</th><th>${t('colDates')}</th><th>${t('colDays')}</th><th>${t('colStatus')}</th></tr>
+      ${state.myLeave.map(r=>`<tr><td>${r.type==='vacation'?t('vacation'):t('sick')}</td><td>${fmtDate(r.start_date)} – ${fmtDate(r.end_date)}</td><td>${r.days}</td><td><span class="pill pill-${r.status}">${r.status}</span></td></tr>`).join('') || `<tr><td class="empty" colspan="4">${t('noRequestsYet')}</td></tr>`}
+    </table></div>
+  `;
+}
+
+function pageTeamDashboard(){
+  const isManager = state.profile.role==='manager';
+  const clockedInToday = state.teamTimeRows.filter(r=>r.clock_in && !r.clock_out).length;
+  return `
+    <h1 class="page-title">${isManager?t('companyOverviewTitle'):t('teamOverviewTitle')}</h1>
+    <p class="page-sub">${isManager?t('companyOverviewSub'):t('teamOverviewSub')}</p>
+    <div class="grid grid-4">
+      <div class="card"><p class="stat-label">${isManager?t('employees'):t('teamMembers')}</p><p class="stat-value">${state.team.length}</p></div>
+      <div class="card"><p class="stat-label">${t('clockedIn')}</p><p class="stat-value blue">${clockedInToday}</p></div>
+      <div class="card"><p class="stat-label">${t('pendingLeave')}</p><p class="stat-value rust">${state.leaveRequests.length}</p></div>
+      <div class="card"><p class="stat-label">${isManager?t('supervisors'):t('directReports')}</p><p class="stat-value">${state.team.length}</p></div>
+    </div>
+    <div class="section-title">${t('clockActivity')}</div>
+    <div class="card"><table>
+      <tr><th>${t('name')}</th><th>${t('colStart')}</th><th>${t('colBreak')}</th><th>${t('colEnd')}</th><th>${t('statusCol')}</th></tr>
+      ${state.team.map(p=>{ const e = state.teamTimeRows.find(r=>r.user_id===p.id); const status = !e||!e.clock_in?t('notStarted'):!e.clock_out?t('inProgress'):t('finished');
+        return `<tr><td>${p.name}</td><td>${e&&e.clock_in?e.clock_in.slice(0,5):'—'}</td><td>${e&&e.break_start?e.break_start.slice(0,5)+'–'+(e.break_end?e.break_end.slice(0,5):'…'):'—'}</td><td>${e&&e.clock_out?e.clock_out.slice(0,5):'—'}</td><td>${status}</td></tr>`; }).join('') || `<tr><td class="empty" colspan="5">—</td></tr>`}
+    </table></div>
+    <div class="section-title">${t('recentCorrections')}</div>
+    <div class="card">${state.corrections.length? state.corrections.map(c=>`<div class="notif-item"><div class="notif-dot" style="background:var(--rust)"></div><div><div>${(c.profiles&&c.profiles.name)||'—'} — ${c.field.replace('_',' ')}: ${c.old_value||'—'} → ${c.new_value}</div><div class="notif-time">${new Date(c.corrected_at).toLocaleString()}${c.reason?' · '+c.reason:''}</div></div></div>`).join('') : `<div class="empty">${t('noCorrections')}</div>`}</div>
+  `;
+}
+
+function pageTeamTime(){
+  const isManager = state.profile.role==='manager';
+  return `
+    <h1 class="page-title">${isManager?t('allTimeTitle'):t('teamTimeTitle')}</h1>
+    <p class="page-sub">${t('timeRecordsSub')}</p>
+    <div class="card"><table>
+      <tr><th>${t('employee')}</th><th>${t('colDate')}</th><th>${t('colStart')}</th><th>${t('colBreak')}</th><th>${t('colEnd')}</th><th>${t('colTotal')}</th><th></th></tr>
+      ${state.teamTimeRows.map(e=>`<tr><td>${(e.profiles&&e.profiles.name)||'—'}</td><td>${fmtDate(e.date)}</td><td>${e.clock_in?e.clock_in.slice(0,5):'—'}</td><td>${e.break_start?e.break_start.slice(0,5)+'–'+e.break_end.slice(0,5):'—'}</td><td>${e.clock_out?e.clock_out.slice(0,5):'—'}</td><td>${totalWorked(e)||'—'}</td><td><button class="btn btn-sm" onclick="openCorrectForm('${e.user_id}','${e.date}','${(e.profiles&&e.profiles.name)||''}')">${t('correct')}</button></td></tr>`).join('') || `<tr><td class="empty" colspan="7">—</td></tr>`}
+    </table></div>
+  `;
+}
+
+function pageSchedule(){
+  const upcoming = state.teamTimetables || [];
+  return `
+    <h1 class="page-title">${t('schedulesTitle')}</h1>
+    <p class="page-sub">${t('schedulesSub')}</p>
+    <div style="margin-bottom:16px"><button class="btn btn-primary" onclick="openScheduleForm()">+ ${t('assignTimetable')}</button></div>
+    <div class="card"><table>
+      <tr><th>${t('employee')}</th><th>${t('colDate')}</th><th>${t('colStart')}</th><th>${t('colEnd')}</th><th>${t('colBreak')}</th></tr>
+      ${upcoming.map(tt=>`<tr><td>${(tt.profiles&&tt.profiles.name)||'—'}</td><td>${fmtDate(tt.date)}</td><td>${tt.planned_start.slice(0,5)}</td><td>${tt.planned_end.slice(0,5)}</td><td>${tt.planned_break_minutes} min</td></tr>`).join('') || `<tr><td class="empty" colspan="5">${t('noUpcomingTimetables')}</td></tr>`}
+    </table></div>
+  `;
+}
+
+function pageLeaveApprovals(){
+  const isManager = state.profile.role==='manager';
+  return `
+    <h1 class="page-title">${t('leaveReqTitle')}</h1>
+    <p class="page-sub">${isManager?t('leaveReqSubMgr'):t('leaveReqSubSup')}</p>
+    <div class="card"><table>
+      <tr><th>${t('name')}</th><th>${t('colType')}</th><th>${t('colDates')}</th><th>${t('colDays')}</th><th>${t('colReason')}</th><th>${t('colStatus')}</th><th></th></tr>
+      ${state.leaveRequests.map(r=>`<tr>
+        <td>${(r.profiles&&r.profiles.name)||'—'}</td>
+        <td>${r.type==='vacation'?t('vacation'):t('sick')}</td>
+        <td>${fmtDate(r.start_date)} – ${fmtDate(r.end_date)}</td>
+        <td>${r.days}</td><td>${r.reason||'—'}</td>
+        <td><span class="pill pill-${r.status}">${r.status}</span></td>
+        <td>${r.status==='pending'?`<button class="btn btn-sm btn-accept" onclick="decideLeave('${r.id}','accepted','${r.user_id}')">${t('accept')}</button> <button class="btn btn-sm btn-reject" onclick="decideLeave('${r.id}','rejected','${r.user_id}')">${t('reject')}</button>`:''}</td>
+      </tr>`).join('') || `<tr><td class="empty" colspan="7">${t('noRequests')}</td></tr>`}
+    </table></div>
+  `;
+}
+
+function pageReports(){
+  return `
+    <h1 class="page-title">${t('reportsTitle')}</h1>
+    <p class="page-sub">${t('reportsSub')}</p>
+    <div class="card">
+      <div class="field"><label>${t('exportHeaderLabel')}</label><input id="export-header" value="${state.exportHeaderName}" onchange="state.exportHeaderName=this.value"></div>
+      <button class="btn btn-primary" onclick="exportMonthlyExcel()">${t('downloadExcel')}</button>
+    </div>
+    <div class="section-title">${t('includedTabs')}</div>
+    <div class="card">${state.team.map(p=>`<div class="notif-item"><div class="notif-dot" style="background:var(--green)"></div><div>${p.name}</div></div>`).join('') || `<div class="empty">—</div>`}</div>
+  `;
+}
+
+function pagePeople(){
+  const pending = state.people.filter(p=>p.role==='employee' && !p.supervisor_id && p.id!==state.profile.id);
+  const others = state.people.filter(p=>!(p.role==='employee' && !p.supervisor_id) && p.id!==state.profile.id);
+  return `
+    <h1 class="page-title">${t('peopleTitle')}</h1>
+    <p class="page-sub">${t('peopleSub')}</p>
+    ${pending.length?`
+    <div class="section-title">${t('pendingPeople')}</div>
+    <div class="card">${pending.map(p=>`<div class="notif-item"><div class="notif-dot" style="background:var(--rust)"></div><div style="flex:1">${p.name}</div><button class="btn btn-sm btn-primary" onclick="openAssignForm('${p.id}')">${t('assignRole')}</button></div>`).join('')}</div>
+    `:''}
+    <div class="section-title">${t('employees')}</div>
+    <div class="card">${others.map(p=>`<div class="notif-item"><div class="notif-dot"></div><div style="flex:1">${p.name} <span style="color:var(--ink-soft);font-size:12px;text-transform:capitalize">· ${p.role}</span></div><button class="btn btn-sm" onclick="openAssignForm('${p.id}')">${t('assignRole')}</button> <button class="btn btn-sm" onclick="confirmRemovePerson('${p.id}','${p.name}')">${t('remove')}</button></div>`).join('') || `<div class="empty">—</div>`}</div>
+  `;
+}
+
+function pageBirthdays(){
+  return `
+    <h1 class="page-title">${t('birthdaysTitle')}</h1>
+    <p class="page-sub">${t('birthdaysSub')}</p>
+    <div class="card">${state.birthdays.map(u=>`<div class="bday-row"><div class="avatar">${initials(u.name)}</div><div style="flex:1">${u.name} <span style="color:var(--ink-soft);font-size:12px;text-transform:capitalize">· ${u.role}</span></div><div style="color:var(--ink-soft);font-size:13px">${u.nextBday.toLocaleDateString(state.lang==='nl'?'nl-NL':'en-GB',{day:'2-digit',month:'short'})}</div></div>`).join('') || `<div class="empty">—</div>`}</div>
+  `;
+}
+
+initApp();
+setInterval(()=>{ const el = document.getElementById('clockface'); if(el) el.textContent = new Date().toTimeString().slice(0,8); }, 1000);
+</script>
+</body>
+</html>
