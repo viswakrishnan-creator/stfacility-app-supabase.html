@@ -108,8 +108,8 @@
 const SUPABASE_URL = 'https://ryryzbenmzawmgqqbmlf.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_8LQ_NHQFu2fn-z9FBkO_9w_J6bV1C64';
 
-const CONFIGURED = https://ryryzbenmzawmgqqbmlf.supabase.co !== 'YOUR_https://ryryzbenmzawmgqqbmlf.supabase.co' && sb_publishable_8LQ_NHQFu2fn-z9FBkO_9w_J6bV1C64 !== 'YOUR_sb_publishable_8LQ_NHQFu2fn-z9FBkO_9w_J6bV1C64';
-const sb = CONFIGURED ? window.supabase.createClient(https://ryryzbenmzawmgqqbmlf.supabase.co, sb_publishable_8LQ_NHQFu2fn-z9FBkO_9w_J6bV1C64) : null;
+const CONFIGURED = SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY';
+const sb = CONFIGURED ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 /* ---------------- i18n ---------------- */
 const I18N = {
